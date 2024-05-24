@@ -2,7 +2,7 @@ name: Java with Gradle
 
 on:
   push:
-    branches: [ main ]
+    branches: [ master ]
 
 env:
   REPO_NAME: "${{ github.event.repository.name }}"

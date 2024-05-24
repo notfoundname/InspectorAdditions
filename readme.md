@@ -1,2 +1,2 @@
-# InspectorAdditions
+# InspectorAdditions [![Java with Gradle](https://github.com/notfoundname/InspectorAdditions/actions/workflows/gradle.yml/badge.svg)](https://github.com/notfoundname/InspectorAdditions/actions/workflows/gradle.yml)
 includes code from https://github.com/WMGameLive/LeashPlayers
