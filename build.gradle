@@ -1,0 +1,32 @@
+plugins {
+    id "java"
+}
+defaultTasks "clean", "build"
+
+group = "com.notfoundname.inspectoradditions"
+version = "1.0-SNAPSHOT"
+
+repositories {
+    mavenCentral()
+    maven { url "https://repo.papermc.io/repository/maven-public/" }
+    maven { url 'https://mvn.lumine.io/repository/maven-public/' }
+    maven { url "https://maven.playpro.com/"}
+}
+
+dependencies {
+    compileOnly "io.papermc.paper:paper-api:1.20.2-R0.1-SNAPSHOT"
+    compileOnly "io.lumine:Mythic-Dist:5.6.1"
+    compileOnly "net.coreprotect:coreprotect:22.4"
+}
+
+java {
+    toolchain.languageVersion.set(JavaLanguageVersion.of(17))
+}
+
+processResources {
+    filesMatching("plugin.yml") {
+        expand "version" : project.version,
+                "main" : project.group + "." + rootProject.name,
+                "name" : rootProject.name
+    }
+}
