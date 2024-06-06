@@ -111,12 +111,11 @@ public class InspectorAdditions extends JavaPlugin implements Listener {
                         zombie.setInvulnerable(true);
                         zombie.addPotionEffect(new PotionEffect(PotionEffectType.SLOW, Integer.MAX_VALUE, 255, false, false));
                         zombie.setLeashHolder(player);
-                        entityList.add(zombie);
                     });
 
                     target.setAllowFlight(true);
                     leashed.add(target);
-                    //entityList.add(entity);
+                    entityList.add(entity);
 
                     new BukkitRunnable() {
                         public void run() {
