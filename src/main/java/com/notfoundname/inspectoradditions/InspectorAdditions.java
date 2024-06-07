@@ -12,6 +12,7 @@ import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.entity.*;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityCombustEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
@@ -29,7 +30,6 @@ import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
-
 import java.util.*;
 
 public class InspectorAdditions extends JavaPlugin implements Listener {
@@ -50,7 +50,8 @@ public class InspectorAdditions extends JavaPlugin implements Listener {
     public void onEnable() {
         instance = this;
         getServer().getPluginManager().registerEvents(this, this);
-        saveDefaultConfig();
+
+        saveResource("config.yml", getConfig().getInt("ConfigVersion") != 1);
 
         ItemMeta pageForwardMeta = pageForwardItemStack.getItemMeta();
         pageForwardMeta.displayName(
@@ -70,17 +71,19 @@ public class InspectorAdditions extends JavaPlugin implements Listener {
                 coreProtectAPI = ((CoreProtect) plugin).getAPI();
             }
         } catch (Exception exception) {
-            exception.printStackTrace();
+            for (StackTraceElement stackTraceElement : exception.getStackTrace()) {
+                getLogger().severe(stackTraceElement.toString());
+            }
         }
     }
 
     @EventHandler
     public void onLeash(PrePlayerAttackEntityEvent event) {
         if (!event.getPlayer().isSneaking()) return;
+        if (leashed.contains(event.getPlayer())) return;
         if (event.getAttacked() instanceof Player target) {
             Player player = event.getPlayer();
             ItemStack playerItem = player.getInventory().getItemInMainHand();
-            if (target.getGameMode() != GameMode.SURVIVAL) return;
             if (playerItem.getType() != Material.AIR && MythicBukkit.inst().getItemManager().isMythicItem(playerItem)) {
                 if (MythicBukkit.inst().getItemManager().getMythicTypeFromItem(playerItem).equals(
                         getConfig().getString("MythicMobs-Item", "InspectorsSpyglass"))) {
@@ -98,7 +101,7 @@ public class InspectorAdditions extends JavaPlugin implements Listener {
                     LivingEntity entity = target.getWorld().spawn(target.getLocation(), Zombie.class, zombie -> {
                         zombie.getEquipment().setItemInMainHand(null);
                         zombie.getEquipment().setHelmet(null);
-                        zombie.getEquipment().setChestplate(null);
+                        zombie.getEquipment().setChestplate(new ItemStack(Material.CHAINMAIL_CHESTPLATE));
                         zombie.getEquipment().setLeggings(null);
                         zombie.getEquipment().setBoots(null);
                         zombie.setCanPickupItems(false);
@@ -119,7 +122,7 @@ public class InspectorAdditions extends JavaPlugin implements Listener {
 
                     new BukkitRunnable() {
                         public void run() {
-                            if(!target.isOnline() || !entity.isValid() || !entity.isLeashed() || !leashed.contains(target)) {
+                            if (!target.isOnline() || !entity.isValid() || !entity.isLeashed() || !leashed.contains(target)) {
                                 leashed.remove(target);
                                 entityList.remove(entity);
                                 entity.remove();
@@ -147,7 +150,6 @@ public class InspectorAdditions extends JavaPlugin implements Listener {
 
     @EventHandler
     public void onUnleash(EntityUnleashEvent event) {
-        if (event.getReason() == EntityUnleashEvent.UnleashReason.PLAYER_UNLEASH) return;
         if (event.getEntity() instanceof LivingEntity) {
             if (entityList.contains((LivingEntity) event.getEntity())) {
                 distanceUnleash.add(event.getEntity());
@@ -168,8 +170,14 @@ public class InspectorAdditions extends JavaPlugin implements Listener {
         if (entityList.contains((LivingEntity) event.getDamager())) event.setCancelled(true);
     }
 
+    // Disallow any interaction by a leashed player
+    @EventHandler(priority = EventPriority.HIGHEST)
+    public void onLeashInteract(PlayerInteractEvent event) {
+        event.setCancelled(leashed.contains(event.getPlayer()));
+    }
+
     @EventHandler
-    public void onInteract(PlayerInteractEvent event) {
+    public void onInspectorInteract(PlayerInteractEvent event) {
         Player player = event.getPlayer();
         ItemStack playerItem = player.getInventory().getItemInMainHand();
         if (playerItem.getType() != Material.AIR && MythicBukkit.inst().getItemManager().isMythicItem(playerItem)) {

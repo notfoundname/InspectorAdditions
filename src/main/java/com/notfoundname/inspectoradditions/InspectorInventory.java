@@ -27,8 +27,8 @@ public class InspectorInventory implements InventoryHolder, Listener {
     public InspectorInventory(InspectorAdditions plugin, List<String[]> data) {
         this.plugin = plugin;
         this.data = data;
-        maxPage = data.size() / maxInventorySize;
-        inventory = plugin.getServer().createInventory(this, 54,
+        this.maxPage = data.size() / maxInventorySize;
+        this.inventory = plugin.getServer().createInventory(this, 54,
                 Component.text(plugin.getConfig().getString("CoreProtect-InventoryName", "null")
                         .replace("<page>", Integer.toString(currentPage + 1))
                         .replace("<maxpage>", Integer.toString(maxPage + 1))));
@@ -38,7 +38,7 @@ public class InspectorInventory implements InventoryHolder, Listener {
     @NotNull
     @Override
     public Inventory getInventory() {
-        return inventory;
+        return this.inventory;
     }
 
     public void fill() {
@@ -90,16 +90,22 @@ public class InspectorInventory implements InventoryHolder, Listener {
                 default:
                     break;
             }
+            Component name = Component.text(material);
+            if (parseResult.getItemMeta() != null) {
+                if (parseResult.getItemMeta().hasDisplayName() && parseResult.getItemMeta().displayName() != null) {
+                    name = parseResult.getItemMeta().displayName();
+                }
+            }
             itemMeta.displayName(
                     MiniMessage.miniMessage().deserialize(
                             plugin.getConfig().getString(action, action),
                             Placeholder.unparsed("entry", Integer.toString(currentNumber)),
-                            Placeholder.unparsed("material", material + "x" + (parseResult.getItemMeta() != null ? Integer.toString(parseResult.getAmount()) : ""))
+                            Placeholder.component("name", name)
                     )
             );
 
-            itemMeta.lore(plugin.getConfig().getStringList("CoreProtect-EntryLore").stream().map(entry -> MiniMessage.miniMessage().deserialize(
-                    entry,
+            itemMeta.lore(plugin.getConfig().getStringList("CoreProtect-EntryLore").stream().map(entry ->
+                    MiniMessage.miniMessage().deserialize(entry,
                     Placeholder.unparsed("x", Integer.toString(x)),
                     Placeholder.unparsed("y", Integer.toString(y)),
                     Placeholder.unparsed("z", Integer.toString(z)),
