@@ -5,7 +5,7 @@ plugins {
 defaultTasks "clean", "build"
 
 group = "com.notfoundname.inspectoradditions"
-version = "1.2-SNAPSHOT-${System.getenv("BUILD_NUMBER") ?: "null"}"
+version = "1.2-${System.getenv("BUILD_NUMBER") ?: "null"}"
 
 repositories {
     mavenCentral()
@@ -19,6 +19,7 @@ dependencies {
     compileOnly "io.papermc.paper:paper-api:1.20.4-R0.1-SNAPSHOT"
     compileOnly "io.lumine:Mythic-Dist:5.6.1"
     compileOnly "com.github.notfoundname:CoreProtect:master-SNAPSHOT"
+    compileOnly files("libs/lib-GSit-1.9.1.jar")
     // compileOnly "net.coreprotect:coreprotect:22.4"
 }
 

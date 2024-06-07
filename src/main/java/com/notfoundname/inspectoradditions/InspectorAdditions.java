@@ -1,5 +1,11 @@
 package com.notfoundname.inspectoradditions;
 
+import dev.geco.gsit.api.GSitAPI;
+import dev.geco.gsit.api.event.PreEntitySitEvent;
+import dev.geco.gsit.api.event.PrePlayerCrawlEvent;
+import dev.geco.gsit.api.event.PrePlayerPlayerSitEvent;
+import dev.geco.gsit.api.event.PrePlayerPoseEvent;
+import dev.geco.gsit.objects.GetUpReason;
 import io.lumine.mythic.bukkit.MythicBukkit;
 import io.papermc.paper.entity.TeleportFlag;
 import io.papermc.paper.event.player.PrePlayerAttackEntityEvent;
@@ -106,7 +112,7 @@ public class InspectorAdditions extends JavaPlugin implements Listener {
                         zombie.getEquipment().setBoots(null);
                         zombie.setCanPickupItems(false);
                         zombie.setAdult();
-                        if(zombie.getVehicle() != null)
+                        if (zombie.getVehicle() != null)
                             zombie.getVehicle().remove();
                         zombie.setSilent(true);
                         zombie.setInvisible(true);
@@ -119,6 +125,12 @@ public class InspectorAdditions extends JavaPlugin implements Listener {
                     target.setAllowFlight(true);
                     leashed.add(target);
                     entityList.add(entity);
+
+                    // GSit shit
+                    GSitAPI.stopPlayerSit(target, GetUpReason.KICKED);
+                    GSitAPI.stopCrawl(target, GetUpReason.KICKED);
+                    GSitAPI.removePose(target, GetUpReason.KICKED);
+                    GSitAPI.removeSeat(target, GetUpReason.KICKED);
 
                     new BukkitRunnable() {
                         public void run() {
@@ -173,6 +185,32 @@ public class InspectorAdditions extends JavaPlugin implements Listener {
     // Disallow any interaction by a leashed player
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onLeashInteract(PlayerInteractEvent event) {
+        event.setCancelled(leashed.contains(event.getPlayer()));
+    }
+
+    // GSit shit
+    @EventHandler(priority = EventPriority.HIGHEST)
+    public void onLeashPlayerSit(PrePlayerPlayerSitEvent event) {
+        event.setCancelled(leashed.contains(event.getTarget()) || leashed.contains(event.getPlayer()));
+    }
+
+    // GSit shit
+    @EventHandler(priority = EventPriority.HIGHEST)
+    public void onLeashSit(PreEntitySitEvent event) {
+        if (event.getEntity() instanceof Player player) {
+            event.setCancelled(leashed.contains(player));
+        }
+    }
+
+    // GSit shit
+    @EventHandler(priority = EventPriority.HIGHEST)
+    public void onLeashCrawl(PrePlayerCrawlEvent event) {
+        event.setCancelled(leashed.contains(event.getPlayer()));
+    }
+
+    // GSit shit
+    @EventHandler(priority = EventPriority.HIGHEST)
+    public void onLeashPose(PrePlayerPoseEvent event) {
         event.setCancelled(leashed.contains(event.getPlayer()));
     }
 

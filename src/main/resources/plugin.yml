@@ -3,4 +3,4 @@ main: "${main}"
 version: "${version}"
 api-version: 1.20
 authors: [notfoundname, WMGameLive]
-depend: [MythicMobs, CoreProtect]
+depend: [CoreProtect, GSit, MythicMobs]

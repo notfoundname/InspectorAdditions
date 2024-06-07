@@ -1,9 +1,9 @@
 .idea
 .gradle
 build
-!libs/*
 *.jar
 !gradle-wrapper.jar
+!lib-*.jar
 *.class
 *.conf
 hs_err_pid*
