@@ -243,7 +243,8 @@ public class InspectorAdditions extends JavaPlugin implements Listener {
             List<String[]> data;
             switch (event.getAction()) {
                 case RIGHT_CLICK_AIR:
-                    data = coreProtectAPI.performLookup(31104000, null, null, null, null, null,
+                    data = coreProtectAPI.performLookup(31104000, null, null, null, null,
+                            List.of(0, 1, 2, 3),
                             getConfig().getInt("CoreProtect-Radius", 10), player.getLocation());
                     break;
                 case RIGHT_CLICK_BLOCK:
