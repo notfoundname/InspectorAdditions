@@ -147,6 +147,9 @@ public class InspectorAdditions extends JavaPlugin implements Listener {
                     public void run() {
                         if (!target.isOnline() || !entity.isValid() || !entity.isLeashed() || !playersAttachedToEntity.containsValue(target)) {
                             playersAndLeashed.get(player).remove(target);
+                            if (playersAndLeashed.get(player).isEmpty()) {
+                                playersAndLeashed.remove(player);
+                            }
                             playersAttachedToEntity.remove(entity);
                             entity.remove();
                             target.setAllowFlight(false);
@@ -167,11 +170,6 @@ public class InspectorAdditions extends JavaPlugin implements Listener {
                 }.runTaskTimer(instance,0, 1);
             }
         }
-    }
-
-    @EventHandler
-    public void onLeash(PlayerLeashEntityEvent event) {
-
     }
 
     @EventHandler
