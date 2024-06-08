@@ -5,7 +5,7 @@ import net.coreprotect.utility.Util;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
-import org.bukkit.entity.HumanEntity;
+import org.bukkit.Material;
 import org.bukkit.event.Listener;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
@@ -14,6 +14,7 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.jetbrains.annotations.NotNull;
 import java.util.List;
+import java.util.Objects;
 
 public class InspectorInventory implements InventoryHolder, Listener {
 
@@ -59,7 +60,7 @@ public class InspectorInventory implements InventoryHolder, Listener {
             int y = parseResult.getY();
             int z = parseResult.getZ();
             String playerName = parseResult.getPlayer();
-            String material = parseResult.getType().getKey().asString();
+            String material = data.get(currentNumber)[5];
             String timestamp = Util.getTimeSince(parseResult.getTimestamp() / 1000L, System.currentTimeMillis() / 1000L, false)
                     .replace("ago", "назад")
                     .replace("/", "")
@@ -67,43 +68,53 @@ public class InspectorInventory implements InventoryHolder, Listener {
                     .replace("h", " часов")
                     .replace("d", " дней");
 
-            ItemStack itemStack = new ItemStack(parseResult.getType());
+            ItemStack itemStack;
+            String configKey;
+            Component name;
+
+            switch (parseResult.getActionId()) {
+                case 0:
+                    itemStack = new ItemStack(parseResult.getType());
+                    configKey = "CoreProtect-BlockDestroyed";
+                    name = Component.translatable(parseResult.getType().translationKey());
+                    break;
+                case 1:
+                    itemStack = new ItemStack(parseResult.getType());
+                    configKey = "CoreProtect-BlockPlaced";
+                    name = Component.translatable(parseResult.getType().translationKey());
+                    break;
+                case 2:
+                    itemStack = new ItemStack(parseResult.getType());
+                    configKey = "CoreProtect-BlockModified";
+                    name = Component.translatable(parseResult.getType().translationKey());
+                    break;
+                case 3:
+                    itemStack = new ItemStack(Material.IRON_SWORD);
+                    configKey = "CoreProtect-EntityKilled";
+                    name = Component.translatable(Util.getEntityType(data.get(currentNumber)[5]).translationKey());
+                    break;
+                default:
+                    itemStack = new ItemStack(Material.BARRIER);
+                    configKey = "null";
+                    name = Component.text(parseResult.getActionId());
+                    break;
+            }
+
             if (parseResult.getItemMeta() != null) {
                 itemStack.setItemMeta(parseResult.getItemMeta());
+                if (parseResult.getItemMeta().hasDisplayName()) {
+                    name = Objects.requireNonNull(parseResult.getItemMeta().displayName())
+                            .append(Component.text(" x " + parseResult.getAmount()));
+                } else {
+                    name = name.append(Component.text(" x " + parseResult.getAmount()));
+                }
             }
             ItemMeta itemMeta = itemStack.getItemMeta();
 
-            String action = String.valueOf(parseResult.getActionId());
-            switch (parseResult.getActionId()) {
-                case 0:
-                    action = "CoreProtect-BlockDestroyed";
-                    break;
-                case 1:
-                    action = "CoreProtect-BlockPlaced";
-                    break;
-                case 2:
-                    action = "CoreProtect-BlockModified";
-                    break;
-                case 3:
-                    action = "CoreProtect-EntityKilled";
-                    break;
-                default:
-                    break;
-            }
-            Component name = Component.text(material);
-            if (parseResult.getItemMeta() != null) {
-                if (parseResult.getItemMeta().hasDisplayName() && parseResult.getItemMeta().displayName() != null) {
-                    name = parseResult.getItemMeta().displayName();
-                }
-            }
-            if (parseResult.getAmount() != 0) {
-                name = name.append(Component.text(" x " + parseResult.getAmount()));
-            }
-            itemMeta.displayName(
-                    MiniMessage.miniMessage().deserialize(
-                            plugin.getConfig().getString(action, action),
-                            Placeholder.unparsed("entry", Integer.toString(currentNumber)),
-                            Placeholder.component("name", name)
+            itemMeta.displayName(MiniMessage.miniMessage().deserialize(
+                    plugin.getConfig().getString(configKey, "null"),
+                    Placeholder.unparsed("entry", Integer.toString(currentNumber + 1)),
+                    Placeholder.component("name", name)
                     )
             );
 
@@ -115,11 +126,13 @@ public class InspectorInventory implements InventoryHolder, Listener {
                     Placeholder.unparsed("player", playerName),
                     Placeholder.unparsed("time", timestamp),
                     Placeholder.unparsed("material", material),
-                    Placeholder.unparsed("itemamount", parseResult.getItemMeta() != null ? Integer.toString(parseResult.getAmount()) : "null"),
-                    Placeholder.unparsed("itemmeta", parseResult.getItemMeta() != null ? parseResult.getItemMeta().getAsString() : "null")
+                    Placeholder.unparsed("itemamount", parseResult.getItemMeta() != null ?
+                            Integer.toString(parseResult.getAmount()) : "null"),
+                    Placeholder.unparsed("itemmeta", parseResult.getItemMeta() != null ?
+                            parseResult.getItemMeta().getAsString() : "null")
             )).toList());
 
-            itemMeta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
+            itemMeta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES, ItemFlag.HIDE_ITEM_SPECIFICS);
             itemStack.setItemMeta(itemMeta);
             inventory.setItem(i, itemStack);
         }
@@ -127,10 +140,6 @@ public class InspectorInventory implements InventoryHolder, Listener {
                 plugin.getConfig().getString("CoreProtect-InventoryName", "null")
                         .replace("<page>", Integer.toString(currentPage + 1))
                         .replace("<maxpage>", Integer.toString(maxPage + 1))));
-    }
-
-    public void close() {
-        inventory.getViewers().forEach(HumanEntity::closeInventory);
     }
 
     public int getCurrentPage() {

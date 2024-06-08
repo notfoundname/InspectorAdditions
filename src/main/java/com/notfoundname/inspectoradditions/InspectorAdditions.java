@@ -22,7 +22,6 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityCombustEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityUnleashEvent;
-import org.bukkit.event.entity.PlayerLeashEntityEvent;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.event.inventory.InventoryMoveItemEvent;
@@ -244,7 +243,7 @@ public class InspectorAdditions extends JavaPlugin implements Listener {
             switch (event.getAction()) {
                 case RIGHT_CLICK_AIR:
                     data = coreProtectAPI.performLookup(31104000, null, null, null, null,
-                            List.of(0, 1, 2, 3),
+                            Arrays.asList(0, 1, 2, 3),
                             getConfig().getInt("CoreProtect-Radius", 10), player.getLocation());
                     break;
                 case RIGHT_CLICK_BLOCK:
@@ -327,7 +326,7 @@ public class InspectorAdditions extends JavaPlugin implements Listener {
     public void onClose(InventoryCloseEvent event) {
         if (event.getInventory().getHolder(false) instanceof InspectorInventory) {
             getLogger().info("Deleting " + event.getInventory().getHolder());
-            openedInventories.remove(event.getPlayer().getUniqueId()).close();
+            openedInventories.remove(event.getPlayer().getUniqueId());
         }
     }
 

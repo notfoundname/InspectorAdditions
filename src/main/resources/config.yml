@@ -13,5 +13,5 @@ CoreProtect-EntityKilled: "<i:false><white>[<entry>]</white> <red>Сущност
 CoreProtect-EntryLore:
   - " "
   - "<i:false><white>X: <x>, Y: <y>, Z: <z>"
-  - "<i:false><green>Источник: <player>"
+  - "<i:false><green>Причина: <player>"
   - "<i:false><blue>Дата: <time>"
