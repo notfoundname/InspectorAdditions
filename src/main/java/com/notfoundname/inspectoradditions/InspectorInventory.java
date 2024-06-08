@@ -96,6 +96,9 @@ public class InspectorInventory implements InventoryHolder, Listener {
                     name = parseResult.getItemMeta().displayName();
                 }
             }
+            if (parseResult.getAmount() != 0) {
+                name = name.append(Component.text(" x " + parseResult.getAmount()));
+            }
             itemMeta.displayName(
                     MiniMessage.miniMessage().deserialize(
                             plugin.getConfig().getString(action, action),

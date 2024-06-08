@@ -1,4 +1,3 @@
-ConfigVersion: 1
 MythicMobs-Item: "InspectorsSpyglass"
 Leash-PlayerLeashed: "<green>Вы привязали игрока <player>!"
 Leash-PlayerUnleashed: "<red>Игрок <player> был отвязан!"
