@@ -50,10 +50,10 @@ public class InspectorInventory implements InventoryHolder, Listener {
             inventory.setItem(45, InspectorAdditions.pageBackItemStack);
         }
         for (int i = 0; i < maxInventorySize; i++) {
-            if (data.size() <= i + (currentPage * maxInventorySize)) {
+            int currentNumber = i + (currentPage * maxInventorySize);
+            if (data.size() <= currentNumber) {
                 break;
             }
-            int currentNumber = i + (currentPage * maxInventorySize);
             CoreProtectAPI.ParseResult parseResult = InspectorAdditions.getInstance().getCoreProtectAPI()
                     .parseResult(data.get(currentNumber));
             int x = parseResult.getX();
@@ -91,7 +91,13 @@ public class InspectorInventory implements InventoryHolder, Listener {
                 case 3:
                     itemStack = new ItemStack(Material.IRON_SWORD);
                     configKey = "CoreProtect-EntityKilled";
-                    name = Component.translatable(Util.getEntityType(data.get(currentNumber)[5]).translationKey());
+                    if (Util.getEntityType(Integer.parseInt(data.get(currentNumber)[5])) != null) {
+                        try {
+                            name = Component.translatable(Util.getEntityType(Integer.parseInt(data.get(currentNumber)[5])).translationKey());
+                            break;
+                        } catch (IllegalArgumentException ignored) { }
+                    }
+                    name = Component.text("");
                     break;
                 default:
                     itemStack = new ItemStack(Material.BARRIER);
@@ -125,11 +131,7 @@ public class InspectorInventory implements InventoryHolder, Listener {
                     Placeholder.unparsed("z", Integer.toString(z)),
                     Placeholder.unparsed("player", playerName),
                     Placeholder.unparsed("time", timestamp),
-                    Placeholder.unparsed("material", material),
-                    Placeholder.unparsed("itemamount", parseResult.getItemMeta() != null ?
-                            Integer.toString(parseResult.getAmount()) : "null"),
-                    Placeholder.unparsed("itemmeta", parseResult.getItemMeta() != null ?
-                            parseResult.getItemMeta().getAsString() : "null")
+                    Placeholder.unparsed("material", material)
             )).toList());
 
             itemMeta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES, ItemFlag.HIDE_ITEM_SPECIFICS);

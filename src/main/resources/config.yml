@@ -9,7 +9,7 @@ CoreProtect-PageBack: "<i:false><white>< Страница назад"
 CoreProtect-BlockDestroyed: "<i:false><white>[<entry>]</white> <red>- <name>"
 CoreProtect-BlockPlaced: "<i:false><white>[<entry>]</white> <green>+ <name>"
 CoreProtect-BlockModified: "<i:false><white>[<entry>]</white> <yellow>/ <name>"
-CoreProtect-EntityKilled: "<i:false><white>[<entry>]</white> <red>Сущность убита"
+CoreProtect-EntityKilled: "<i:false><white>[<entry>]</white> <red>Убита сущность <name>"
 CoreProtect-EntryLore:
   - " "
   - "<i:false><white>X: <x>, Y: <y>, Z: <z>"
