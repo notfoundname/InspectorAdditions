@@ -5,7 +5,7 @@ plugins {
 defaultTasks "clean", "build"
 
 group = "com.notfoundname.inspectoradditions"
-version = "1.5_${System.getenv("BUILD_NUMBER") ?: "null"}"
+version = "1.6-SNAPSHOT_${System.getenv("BUILD_NUMBER") ?: "null"}"
 
 repositories {
     mavenCentral()

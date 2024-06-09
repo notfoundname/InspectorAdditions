@@ -115,9 +115,18 @@ public class InspectorAdditions extends JavaPlugin implements Listener {
             } else if (itemStack.hasItemMeta() && itemStack.getItemMeta() instanceof BlockStateMeta blockStateMeta) {
                 if (blockStateMeta.getBlockState() instanceof Container container) {
                     for (ItemStack item : container.getSnapshotInventory().getContents()) {
+                        if (item == null) continue;
                         if (isSpyglass(item)) {
                             event.setCancelled(true);
                             return;
+                        } else if (item.getItemMeta() instanceof BundleMeta bundleMeta) {
+                            if (!bundleMeta.hasItems()) continue;
+                            for (ItemStack bundleItem : bundleMeta.getItems()) {
+                                if (isSpyglass(bundleItem)) {
+                                    event.setCancelled(true);
+                                    return;
+                                }
+                            }
                         }
                     }
                 }
