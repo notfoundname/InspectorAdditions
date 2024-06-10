@@ -26,7 +26,6 @@ import org.bukkit.event.entity.EntityUnleashEvent;
 import org.bukkit.event.inventory.*;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerTeleportEvent;
-import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.BlockStateMeta;
 import org.bukkit.inventory.meta.BundleMeta;
@@ -36,6 +35,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
+
 import java.util.*;
 
 public class InspectorAdditions extends JavaPlugin implements Listener {
@@ -83,7 +83,7 @@ public class InspectorAdditions extends JavaPlugin implements Listener {
         }
     }
 
-    // PLAYER LEASHING
+    // SPYGLASS DISALLOW ENDERCHEST
 
     public boolean isSpyglass(ItemStack playerItem) {
         return playerItem != null
@@ -94,47 +94,95 @@ public class InspectorAdditions extends JavaPlugin implements Listener {
     }
 
     @EventHandler
-    public void onSpyglassClick(InventoryClickEvent event) {
-        assert event.getClickedInventory() != null;
-        if (event.getClickedInventory().getType() == InventoryType.ENDER_CHEST) {
-            ItemStack itemStack = event.getCursor();
-            switch (event.getClick()) {
-                case SWAP_OFFHAND -> itemStack = event.getWhoClicked().getInventory().getItemInOffHand();
-                case NUMBER_KEY -> itemStack = event.getWhoClicked().getInventory().getItem(event.getHotbarButton());
-            }
-            assert itemStack != null;
-            if (itemStack.getType() == Material.BUNDLE) {
-                if (((BundleMeta) itemStack.getItemMeta()).hasItems()) {
-                    for (ItemStack item : ((BundleMeta) itemStack.getItemMeta()).getItems()) {
-                        if (isSpyglass(item)) {
-                            event.setCancelled(true);
-                            return;
+    public void onSpyglassEnderChestOpenEvent(InventoryOpenEvent event) {
+        if (event.getInventory().getType() == InventoryType.ENDER_CHEST) {
+            if (!(event.getInventory().getHolder(false) instanceof InspectorInventory)) {
+                if (event.getInventory().equals(event.getPlayer().getEnderChest())) {
+                    for (ItemStack itemStack : event.getInventory().getContents()) {
+                        if (itemStack == null) continue;
+                        if (itemStack.getType() == Material.BUNDLE) {
+                            if (((BundleMeta) itemStack.getItemMeta()).hasItems()) {
+                                for (ItemStack item : ((BundleMeta) itemStack.getItemMeta()).getItems()) {
+                                    if (isSpyglass(item)) {
+                                        event.getPlayer().getWorld().dropItem(event.getPlayer().getLocation(), itemStack);
+                                        event.getInventory().remove(itemStack);
+                                    }
+                                }
+                            }
+                        } else if (itemStack.hasItemMeta() && itemStack.getItemMeta() instanceof BlockStateMeta blockStateMeta) {
+                            if (blockStateMeta.getBlockState() instanceof Container container) {
+                                for (ItemStack item : container.getSnapshotInventory().getContents()) {
+                                    if (item == null || !item.hasItemMeta()) continue;
+                                    if (isSpyglass(item)) {
+                                        event.getPlayer().getWorld().dropItem(event.getPlayer().getLocation(), itemStack);
+                                        event.getInventory().remove(itemStack);
+                                    } else if (item.getItemMeta() instanceof BundleMeta bundleMeta) {
+                                        if (!bundleMeta.hasItems()) continue;
+                                        for (ItemStack bundleItem : bundleMeta.getItems()) {
+                                            if (isSpyglass(bundleItem)) {
+                                                event.getPlayer().getWorld().dropItem(event.getPlayer().getLocation(), itemStack);
+                                                event.getInventory().remove(itemStack);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        } else if (isSpyglass(itemStack)) {
+                            event.getPlayer().getWorld().dropItem(event.getPlayer().getLocation(), itemStack);
+                            event.getInventory().remove(itemStack);
                         }
                     }
                 }
-            } else if (itemStack.hasItemMeta() && itemStack.getItemMeta() instanceof BlockStateMeta blockStateMeta) {
-                if (blockStateMeta.getBlockState() instanceof Container container) {
-                    for (ItemStack item : container.getSnapshotInventory().getContents()) {
-                        if (item == null) continue;
-                        if (isSpyglass(item)) {
-                            event.setCancelled(true);
-                            return;
-                        } else if (item.getItemMeta() instanceof BundleMeta bundleMeta) {
-                            if (!bundleMeta.hasItems()) continue;
-                            for (ItemStack bundleItem : bundleMeta.getItems()) {
-                                if (isSpyglass(bundleItem)) {
+            }
+        }
+    }
+
+    @EventHandler
+    public void onSpyglassEnderChestMoveAttempt(InventoryClickEvent event) {
+        assert event.getClickedInventory() != null;
+        if (event.getInventory().getType() == InventoryType.ENDER_CHEST) {
+            if (!(event.getClickedInventory().getHolder(false) instanceof InspectorInventory)) {
+                if (event.getClickedInventory().equals(event.getWhoClicked().getEnderChest())) {
+                    ItemStack itemStack = event.getCursor();
+                    switch (event.getClick()) {
+                        case SWAP_OFFHAND -> itemStack = event.getWhoClicked().getInventory().getItemInOffHand();
+                        case NUMBER_KEY -> itemStack = event.getWhoClicked().getInventory().getItem(event.getHotbarButton());
+                    }
+                    assert itemStack != null;
+                    if (itemStack.getType() == Material.BUNDLE) {
+                        if (((BundleMeta) itemStack.getItemMeta()).hasItems()) {
+                            for (ItemStack item : ((BundleMeta) itemStack.getItemMeta()).getItems()) {
+                                if (isSpyglass(item)) {
                                     event.setCancelled(true);
                                     return;
                                 }
                             }
                         }
-                    }
+                    } else if (itemStack.hasItemMeta() && itemStack.getItemMeta() instanceof BlockStateMeta blockStateMeta) {
+                        if (blockStateMeta.getBlockState() instanceof Container container) {
+                            for (ItemStack item : container.getSnapshotInventory().getContents()) {
+                                if (item == null || !item.hasItemMeta()) continue;
+                                if (isSpyglass(item)) {
+                                    event.setCancelled(true);
+                                    return;
+                                } else if (item.getItemMeta() instanceof BundleMeta bundleMeta) {
+                                    if (!bundleMeta.hasItems()) continue;
+                                    for (ItemStack bundleItem : bundleMeta.getItems()) {
+                                        if (isSpyglass(bundleItem)) {
+                                            event.setCancelled(true);
+                                            return;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    } else event.setCancelled(isSpyglass(itemStack));
                 }
-            } else if (isSpyglass(itemStack)) {
-                event.setCancelled(true);
             }
         }
     }
+
+    // PLAYER LEASHING
 
     @EventHandler
     public void onLeashAttempt(PrePlayerAttackEntityEvent event) {
@@ -287,22 +335,23 @@ public class InspectorAdditions extends JavaPlugin implements Listener {
     public void onInspectorInteract(PlayerInteractEvent event) {
         Player player = event.getPlayer();
         if (isSpyglass(player.getInventory().getItemInMainHand())) {
-            List<String[]> data;
+            List<String[]> data = new ArrayList<>();
             switch (event.getAction()) {
-                case RIGHT_CLICK_AIR:
+                case RIGHT_CLICK_AIR -> {
                     data = coreProtectAPI.performLookup(31104000, null, null, null, null,
                             Arrays.asList(0, 1, 2, 3),
                             getConfig().getInt("CoreProtect-Radius", 10), player.getLocation());
-                    break;
-                case RIGHT_CLICK_BLOCK:
-                    if (event.getClickedBlock() != null && event.getClickedBlock().getState() instanceof InventoryHolder) {
-                        data = coreProtectAPI.containerTransactionsLookup(event.getClickedBlock().getLocation(), 0);
-                    } else {
+                }
+                case RIGHT_CLICK_BLOCK -> {
+                    if (event.getClickedBlock() != null) {
                         data = coreProtectAPI.blockLookup(event.getClickedBlock(), 0);
+                        data.addAll(coreProtectAPI.containerTransactionsLookup(event.getClickedBlock().getLocation(), 0));
+                        data = data.stream().sorted((value1, value2) -> Long.compare(Long.parseLong(value2[0]), Long.parseLong(value1[0]))).toList();
                     }
-                    break;
-                default:
+                }
+                default -> {
                     return;
+                }
             }
             if (data != null && !data.isEmpty()) {
                 event.setCancelled(true);
@@ -319,10 +368,9 @@ public class InspectorAdditions extends JavaPlugin implements Listener {
     public void onInspectorInventoryClick(InventoryClickEvent event) {
         assert event.getClickedInventory() != null;
         if (event.getClickedInventory().getHolder(false) instanceof InspectorInventory inspectorInventory) {
-            getLogger().info("onInspectorInventoryClick");
             event.setCancelled(true);
             if (!openedInventories.containsKey(event.getWhoClicked().getUniqueId())
-                     || event.getCurrentItem() == null) {
+                    || event.getCurrentItem() == null) {
                 return;
             }
             if (event.getCurrentItem().equals(pageForwardItemStack)) {

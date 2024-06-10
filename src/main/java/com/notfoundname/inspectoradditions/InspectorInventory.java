@@ -70,48 +70,49 @@ public class InspectorInventory implements InventoryHolder, Listener {
 
             ItemStack itemStack;
             String configKey;
-            Component name;
+            Component name = Component.text("");
 
             switch (parseResult.getActionId()) {
-                case 0:
+                case 0 -> {
                     itemStack = new ItemStack(parseResult.getType());
                     configKey = "CoreProtect-BlockDestroyed";
                     name = Component.translatable(parseResult.getType().translationKey());
-                    break;
-                case 1:
+                }
+                case 1 -> {
                     itemStack = new ItemStack(parseResult.getType());
                     configKey = "CoreProtect-BlockPlaced";
                     name = Component.translatable(parseResult.getType().translationKey());
-                    break;
-                case 2:
+                }
+                case 2 -> {
                     itemStack = new ItemStack(parseResult.getType());
                     configKey = "CoreProtect-BlockModified";
                     name = Component.translatable(parseResult.getType().translationKey());
-                    break;
-                case 3:
+                }
+                case 3 -> {
                     itemStack = new ItemStack(Material.IRON_SWORD);
                     configKey = "CoreProtect-EntityKilled";
                     if (Util.getEntityType(Integer.parseInt(data.get(currentNumber)[5])) != null) {
                         try {
                             name = Component.translatable(Util.getEntityType(Integer.parseInt(data.get(currentNumber)[5])).translationKey());
-                            break;
                         } catch (IllegalArgumentException ignored) { }
                     }
-                    name = Component.text("");
-                    break;
-                default:
+                }
+                default -> {
                     itemStack = new ItemStack(Material.BARRIER);
                     configKey = "null";
                     name = Component.text(parseResult.getActionId());
-                    break;
+                }
             }
 
             if (parseResult.getItemMeta() != null) {
                 itemStack.setItemMeta(parseResult.getItemMeta());
                 if (parseResult.getItemMeta().hasDisplayName()) {
-                    name = Objects.requireNonNull(parseResult.getItemMeta().displayName())
-                            .append(Component.text(" x " + parseResult.getAmount()));
-                } else {
+                    name = Objects.requireNonNull(parseResult.getItemMeta().displayName());
+                }
+            }
+
+            if (!data.get(currentNumber)[10].isEmpty()) {
+                if (!(parseResult.getAmount() <= 0)) {
                     name = name.append(Component.text(" x " + parseResult.getAmount()));
                 }
             }
