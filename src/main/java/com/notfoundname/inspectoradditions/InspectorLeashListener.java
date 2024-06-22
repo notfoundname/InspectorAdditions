@@ -43,39 +43,41 @@ public class InspectorLeashListener implements Listener {
     public void onLeashEvent(PrePlayerAttackEntityEvent event) {
         Player player = event.getPlayer();
         if (event.getAttacked() instanceof Player leashedPlayer) {
-            if (leashed.contains(leashedPlayer.getUniqueId())) {
-                event.setCancelled(true);
-                player.sendMessage(MiniMessage.miniMessage().deserialize(
-                        plugin.getConfig().getString("Leash-PlayerUnleashed", "<player> был отвязан"),
-                        Placeholder.unparsed("player", leashedPlayer.getName())));
-                unleashPlayer(leashedPlayer);
-                return;
-            }
+            if (plugin.isSpyglass(player.getInventory().getItemInMainHand())) {
+                if (leashed.contains(leashedPlayer.getUniqueId())) {
+                    event.setCancelled(true);
+                    player.sendMessage(MiniMessage.miniMessage().deserialize(
+                            plugin.getConfig().getString("Leash-PlayerUnleashed", "<player> был отвязан"),
+                            Placeholder.unparsed("player", leashedPlayer.getName())));
+                    unleashPlayer(leashedPlayer);
+                    return;
+                }
 
-            if (plugin.isSpyglass(player.getInventory().getItemInMainHand()) && player.isSneaking()) {
-                event.setCancelled(true);
-                player.sendMessage(MiniMessage.miniMessage().deserialize(
-                        plugin.getConfig().getString("Leash-PlayerLeashed", "Вы привязали игрока <player>"),
-                        Placeholder.unparsed("player", leashedPlayer.getName())));
-                // GSit shit
-                GSitAPI.stopPlayerSit(leashedPlayer, GetUpReason.KICKED);
-                GSitAPI.stopCrawl(leashedPlayer, GetUpReason.KICKED);
-                GSitAPI.removePose(leashedPlayer, GetUpReason.KICKED);
-                GSitAPI.removeSeat(leashedPlayer, GetUpReason.KICKED);
+                if (player.isSneaking()) {
+                    event.setCancelled(true);
+                    player.sendMessage(MiniMessage.miniMessage().deserialize(
+                            plugin.getConfig().getString("Leash-PlayerLeashed", "Вы привязали игрока <player>"),
+                            Placeholder.unparsed("player", leashedPlayer.getName())));
+                    // GSit shit
+                    GSitAPI.stopPlayerSit(leashedPlayer, GetUpReason.KICKED);
+                    GSitAPI.stopCrawl(leashedPlayer, GetUpReason.KICKED);
+                    GSitAPI.removePose(leashedPlayer, GetUpReason.KICKED);
+                    GSitAPI.removeSeat(leashedPlayer, GetUpReason.KICKED);
 
-                leashed.add(leashedPlayer.getUniqueId());
-                spawn(player, leashedPlayer);
+                    leashed.add(leashedPlayer.getUniqueId());
+                    spawn(player, leashedPlayer);
 
-                new BukkitRunnable() {
-                    public void run() {
-                        if (!leashed.contains(leashedPlayer.getUniqueId())) {
-                            cancel();
+                    new BukkitRunnable() {
+                        public void run() {
+                            if (!leashed.contains(leashedPlayer.getUniqueId())) {
+                                cancel();
+                            }
+                            if (player.getLocation().distanceSquared(leashedPlayer.getLocation()) > 10.0) {
+                                leashedPlayer.setVelocity(player.getLocation().toVector().subtract(leashedPlayer.getLocation().toVector()).multiply(0.05));
+                            }
                         }
-                        if (player.getLocation().distanceSquared(leashedPlayer.getLocation()) > 10.0) {
-                            leashedPlayer.setVelocity(player.getLocation().toVector().subtract(leashedPlayer.getLocation().toVector()).multiply(0.05));
-                        }
-                    }
-                }.runTaskTimer(plugin, 0L, 0L);
+                    }.runTaskTimer(plugin, 0L, 0L);
+                }
             }
         }
     }
