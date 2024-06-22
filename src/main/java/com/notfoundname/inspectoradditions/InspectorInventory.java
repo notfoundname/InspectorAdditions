@@ -118,7 +118,7 @@ public class InspectorInventory implements InventoryHolder, Listener {
                 if (entry.length >= 13 && !entry[7].equals("3")) {
                     if (entry[11] != null && !entry[11].isEmpty()) {
                         final byte[] metadata = entry[11].getBytes(StandardCharsets.ISO_8859_1);
-                        final ItemStack item = (ItemStack) Rollback.populateItemStack(new ItemStack(Material.valueOf(type), 1), metadata)[2];
+                        ItemStack item = (ItemStack) Rollback.populateItemStack(new ItemStack(Util.getType(Integer.parseInt(type)), 1), metadata)[2];
                         itemStack.setItemMeta(item.getItemMeta());
                         if (item.getItemMeta().hasDisplayName()) {
                             name = Objects.requireNonNull(item.getItemMeta().displayName());
