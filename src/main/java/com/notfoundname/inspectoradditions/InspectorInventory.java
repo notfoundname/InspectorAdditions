@@ -1,11 +1,13 @@
 package com.notfoundname.inspectoradditions;
 
-import net.coreprotect.CoreProtectAPI;
+import net.coreprotect.database.rollback.Rollback;
 import net.coreprotect.utility.Util;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.Material;
+import org.bukkit.Tag;
 import org.bukkit.event.Listener;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
@@ -13,8 +15,9 @@ import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.jetbrains.annotations.NotNull;
-import java.util.List;
-import java.util.Objects;
+
+import java.nio.charset.StandardCharsets;
+import java.util.*;
 
 public class InspectorInventory implements InventoryHolder, Listener {
 
@@ -24,15 +27,18 @@ public class InspectorInventory implements InventoryHolder, Listener {
     private final int maxPage;
     private final int maxInventorySize = 45;
     private final List<String[]> data;
+    private final List<ItemStack> items;
 
     public InspectorInventory(InspectorAdditions plugin, List<String[]> data) {
         this.plugin = plugin;
         this.data = data;
+        this.items = new ArrayList<>();
         this.maxPage = data.size() / maxInventorySize;
         this.inventory = plugin.getServer().createInventory(this, 54,
                 Component.text(plugin.getConfig().getString("CoreProtect-InventoryName", "null")
                         .replace("<page>", Integer.toString(currentPage + 1))
                         .replace("<maxpage>", Integer.toString(maxPage + 1))));
+        populateItems();
         fill();
     }
 
@@ -40,6 +46,153 @@ public class InspectorInventory implements InventoryHolder, Listener {
     @Override
     public Inventory getInventory() {
         return this.inventory;
+    }
+
+    public void populateItems() {
+        for (String[] entry : data) {
+            if (entry == null) continue;
+            if (entry.length == 0) continue;
+            String timestamp = Util.getTimeSince(Long.parseLong(entry[0]), System.currentTimeMillis() / 1000L, false)
+                    .replace("ago", "назад")
+                    .replace("/", "")
+                    .replace("m", " минут")
+                    .replace("h", " часов")
+                    .replace("d", " дней");
+            String source = entry[1];
+            String x = entry[2];
+            String y = entry[3];
+            String z = entry[4];
+            String type = entry[5];
+
+            boolean isSignLookup = type.equals("sign");
+
+            if (!isSignLookup) {
+                if (Util.getType(type) != null) {
+                    if (Tag.SIGNS.isTagged(Util.getType(type)) && entry[7].equals("2")) {
+                        continue;
+                    }
+                }
+            }
+
+            ItemStack itemStack;
+            Component name;
+            try {
+                if (isSignLookup) {
+                    itemStack = new ItemStack(Material.OAK_SIGN);
+                } else {
+                    itemStack = new ItemStack(plugin.getCoreProtectAPI().parseResult(entry).getType());
+                }
+                name = Component.translatable(itemStack.getType().translationKey());
+            } catch (IllegalArgumentException | NullPointerException e) {
+                itemStack = new ItemStack(Material.IRON_SWORD);
+                name = Component.text(entry[5]);
+            }
+            String configKey;
+
+
+            switch (entry[7]) {
+                case "0" -> {
+                    configKey = "CoreProtect-BlockDestroyed";
+                }
+                case "1" -> {
+                    configKey = "CoreProtect-BlockPlaced";
+                }
+                case "2" -> {
+                    configKey = "CoreProtect-BlockModified";
+                }
+                case "3" -> {
+                    configKey = "CoreProtect-EntityKilled";
+                    try {
+                        name = Component.translatable(Util.getEntityType(Integer.parseInt(entry[5])).translationKey());
+                    } catch (Throwable e) {
+                        name = Component.text(entry[5]);
+                    }
+                }
+                default -> {
+                    itemStack = new ItemStack(Material.BARRIER);
+                    configKey = "null";
+                    name = Component.text(entry[7]);
+                }
+            }
+            if (!isSignLookup) {
+                if (entry.length >= 13 && !entry[7].equals("3")) {
+                    if (entry[11] != null && !entry[11].isEmpty()) {
+                        final byte[] metadata = entry[11].getBytes(StandardCharsets.ISO_8859_1);
+                        final ItemStack item = (ItemStack) Rollback.populateItemStack(new ItemStack(Material.valueOf(type), 1), metadata)[2];
+                        itemStack.setItemMeta(item.getItemMeta());
+                        if (item.getItemMeta().hasDisplayName()) {
+                            name = Objects.requireNonNull(item.getItemMeta().displayName());
+                        }
+                    }
+
+                }
+
+                if (!entry[10].isEmpty()) {
+                    if (!(Integer.parseInt(entry[10]) <= 0)) {
+                        name = name.append(Component.text(" x " + entry[10]));
+                    }
+                }
+            }
+            ItemMeta itemMeta = itemStack.getItemMeta();
+            itemMeta.displayName(MiniMessage.miniMessage().deserialize(
+                            plugin.getConfig().getString(configKey, configKey),
+                            Placeholder.unparsed("entry", Integer.toString(data.indexOf(entry))),
+                            Placeholder.component("name", name)
+                    )
+            );
+
+            List<Component> lore = new ArrayList<>();
+
+            if (itemMeta.hasLore()) {
+                lore.addAll(itemMeta.lore());
+            }
+
+            lore.addAll(plugin.getConfig().getStringList("CoreProtect-EntryLore").stream().map(line ->
+                    MiniMessage.miniMessage().deserialize(line,
+                            Placeholder.unparsed("x", x),
+                            Placeholder.unparsed("y", y),
+                            Placeholder.unparsed("z", z),
+                            Placeholder.unparsed("player", source),
+                            Placeholder.unparsed("time", timestamp),
+                            Placeholder.unparsed("material", type)
+                    )).toList());
+            if (isSignLookup) {
+                lore.add(Component.text(" "));
+                lore.add(MiniMessage.miniMessage().deserialize("<i:false><white>Спереди:"));
+                lore.add(MiniMessage.miniMessage().deserialize("<i:false>")
+                        .append(LegacyComponentSerializer.legacySection().deserialize(entry[8] != null ?
+                                entry[8] : " ")));
+                lore.add(MiniMessage.miniMessage().deserialize("<i:false>")
+                        .append(LegacyComponentSerializer.legacySection().deserialize(entry[9] != null ?
+                                entry[9] : " ")));
+                lore.add(MiniMessage.miniMessage().deserialize("<i:false>")
+                        .append(LegacyComponentSerializer.legacySection().deserialize(entry[10] != null ?
+                                entry[10] : " ")));
+                lore.add(MiniMessage.miniMessage().deserialize("<i:false>")
+                        .append(LegacyComponentSerializer.legacySection().deserialize(entry[11] != null ?
+                                entry[11] : " ")));
+                lore.add(MiniMessage.miniMessage().deserialize("<i:false><white>Сзади:"));
+                lore.add(MiniMessage.miniMessage().deserialize("<i:false>")
+                        .append(LegacyComponentSerializer.legacySection().deserialize(entry[12] != null ?
+                                entry[12] : " ")));
+                lore.add(MiniMessage.miniMessage().deserialize("<i:false>")
+                        .append(LegacyComponentSerializer.legacySection().deserialize(entry[13] != null ?
+                                entry[13] : " ")));
+                lore.add(MiniMessage.miniMessage().deserialize("<i:false>")
+                        .append(LegacyComponentSerializer.legacySection().deserialize(entry[14] != null ?
+                                entry[14] : " ")));
+                lore.add(MiniMessage.miniMessage().deserialize("<i:false>")
+                        .append(LegacyComponentSerializer.legacySection().deserialize(entry[15] != null ?
+                entry[15] : " ")));
+            }
+            itemMeta.lore(lore);
+
+            itemMeta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES, ItemFlag.HIDE_ITEM_SPECIFICS);
+            itemStack.setItemMeta(itemMeta);
+            if (itemStack.getType() != Material.AIR) {
+                items.add(itemStack);
+            }
+        }
     }
 
     public void fill() {
@@ -51,93 +204,10 @@ public class InspectorInventory implements InventoryHolder, Listener {
         }
         for (int i = 0; i < maxInventorySize; i++) {
             int currentNumber = i + (currentPage * maxInventorySize);
-            if (data.size() <= currentNumber) {
+            if (items.size() <= currentNumber) {
                 break;
             }
-            CoreProtectAPI.ParseResult parseResult = InspectorAdditions.getInstance().getCoreProtectAPI()
-                    .parseResult(data.get(currentNumber));
-            int x = parseResult.getX();
-            int y = parseResult.getY();
-            int z = parseResult.getZ();
-            String playerName = parseResult.getPlayer();
-            String material = data.get(currentNumber)[5];
-            String timestamp = Util.getTimeSince(parseResult.getTimestamp() / 1000L, System.currentTimeMillis() / 1000L, false)
-                    .replace("ago", "назад")
-                    .replace("/", "")
-                    .replace("m", " минут")
-                    .replace("h", " часов")
-                    .replace("d", " дней");
-
-            ItemStack itemStack;
-            String configKey;
-            Component name = Component.text("");
-
-            switch (parseResult.getActionId()) {
-                case 0 -> {
-                    itemStack = new ItemStack(parseResult.getType());
-                    configKey = "CoreProtect-BlockDestroyed";
-                    name = Component.translatable(parseResult.getType().translationKey());
-                }
-                case 1 -> {
-                    itemStack = new ItemStack(parseResult.getType());
-                    configKey = "CoreProtect-BlockPlaced";
-                    name = Component.translatable(parseResult.getType().translationKey());
-                }
-                case 2 -> {
-                    itemStack = new ItemStack(parseResult.getType());
-                    configKey = "CoreProtect-BlockModified";
-                    name = Component.translatable(parseResult.getType().translationKey());
-                }
-                case 3 -> {
-                    itemStack = new ItemStack(Material.IRON_SWORD);
-                    configKey = "CoreProtect-EntityKilled";
-                    if (Util.getEntityType(Integer.parseInt(data.get(currentNumber)[5])) != null) {
-                        try {
-                            name = Component.translatable(Util.getEntityType(Integer.parseInt(data.get(currentNumber)[5])).translationKey());
-                        } catch (IllegalArgumentException ignored) { }
-                    }
-                }
-                default -> {
-                    itemStack = new ItemStack(Material.BARRIER);
-                    configKey = "null";
-                    name = Component.text(parseResult.getActionId());
-                }
-            }
-
-            if (parseResult.getItemMeta() != null) {
-                itemStack.setItemMeta(parseResult.getItemMeta());
-                if (parseResult.getItemMeta().hasDisplayName()) {
-                    name = Objects.requireNonNull(parseResult.getItemMeta().displayName());
-                }
-            }
-
-            if (!data.get(currentNumber)[10].isEmpty()) {
-                if (!(parseResult.getAmount() <= 0)) {
-                    name = name.append(Component.text(" x " + parseResult.getAmount()));
-                }
-            }
-            ItemMeta itemMeta = itemStack.getItemMeta();
-
-            itemMeta.displayName(MiniMessage.miniMessage().deserialize(
-                    plugin.getConfig().getString(configKey, "null"),
-                    Placeholder.unparsed("entry", Integer.toString(currentNumber + 1)),
-                    Placeholder.component("name", name)
-                    )
-            );
-
-            itemMeta.lore(plugin.getConfig().getStringList("CoreProtect-EntryLore").stream().map(entry ->
-                    MiniMessage.miniMessage().deserialize(entry,
-                    Placeholder.unparsed("x", Integer.toString(x)),
-                    Placeholder.unparsed("y", Integer.toString(y)),
-                    Placeholder.unparsed("z", Integer.toString(z)),
-                    Placeholder.unparsed("player", playerName),
-                    Placeholder.unparsed("time", timestamp),
-                    Placeholder.unparsed("material", material)
-            )).toList());
-
-            itemMeta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES, ItemFlag.HIDE_ITEM_SPECIFICS);
-            itemStack.setItemMeta(itemMeta);
-            inventory.setItem(i, itemStack);
+            inventory.setItem(i, items.get(currentNumber));
         }
         inventory.getViewers().forEach(viewer -> viewer.getOpenInventory().setTitle(
                 plugin.getConfig().getString("CoreProtect-InventoryName", "null")

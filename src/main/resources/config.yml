@@ -1,4 +1,5 @@
 MythicMobs-Item: "InspectorsSpyglass"
+MythicMobs-ItemDropped: "<yellow>Вы обронили <item>!"
 Leash-PlayerLeashed: "<green>Вы привязали игрока <player>!"
 Leash-PlayerUnleashed: "<red>Игрок <player> был отвязан!"
 CoreProtect-Radius: 10

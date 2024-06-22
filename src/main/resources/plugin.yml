@@ -2,5 +2,5 @@ name: "${name}"
 main: "${main}"
 version: "${version}"
 api-version: 1.20
-authors: [notfoundname, WMGameLive]
+authors: [notfoundname, HIlight3R]
 depend: [CoreProtect, GSit, MythicMobs]
