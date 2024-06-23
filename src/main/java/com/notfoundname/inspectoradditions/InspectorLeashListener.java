@@ -6,22 +6,17 @@ import dev.geco.gsit.api.event.PrePlayerCrawlEvent;
 import dev.geco.gsit.api.event.PrePlayerPlayerSitEvent;
 import dev.geco.gsit.api.event.PrePlayerPoseEvent;
 import dev.geco.gsit.objects.GetUpReason;
-import io.papermc.paper.entity.TeleportFlag;
 import io.papermc.paper.event.player.PrePlayerAttackEntityEvent;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
-import org.bukkit.Bukkit;
 import org.bukkit.entity.*;
 import org.bukkit.event.EventHandler;
-import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityUnleashEvent;
-import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.hanging.HangingPlaceEvent;
-import org.bukkit.event.player.PlayerMoveEvent;
-import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.metadata.FixedMetadataValue;
 import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.scheduler.BukkitTask;
 
 import java.util.*;
 
@@ -29,10 +24,7 @@ public class InspectorLeashListener implements Listener {
 
     private final InspectorAdditions plugin;
 
-    /**
-     * List of leashed players
-     */
-    List<UUID> leashed = new ArrayList<>();
+    private final List<LeashBond> leashBonds = new ArrayList<>();
 
     public InspectorLeashListener(InspectorAdditions plugin) {
         this.plugin = plugin;
@@ -43,76 +35,44 @@ public class InspectorLeashListener implements Listener {
     public void onLeashEvent(PrePlayerAttackEntityEvent event) {
         Player player = event.getPlayer();
         if (event.getAttacked() instanceof Player leashedPlayer) {
-            if (plugin.isSpyglass(player.getInventory().getItemInMainHand())) {
-                if (leashed.contains(leashedPlayer.getUniqueId())) {
+            for (LeashBond leashBond : leashBonds) {
+                if (leashBond.getLeashed().getUniqueId().equals(leashedPlayer.getUniqueId())
+                        && leashBond.getOwner().getUniqueId().equals(player.getUniqueId())) {
                     event.setCancelled(true);
                     player.sendMessage(MiniMessage.miniMessage().deserialize(
                             plugin.getConfig().getString("Leash-PlayerUnleashed", "<player> был отвязан"),
                             Placeholder.unparsed("player", leashedPlayer.getName())));
-                    unleashPlayer(leashedPlayer);
+                    leashBond.remove();
                     return;
                 }
-
+            }
+            if (plugin.isSpyglass(player.getInventory().getItemInMainHand())) {
                 if (player.isSneaking()) {
                     event.setCancelled(true);
                     player.sendMessage(MiniMessage.miniMessage().deserialize(
                             plugin.getConfig().getString("Leash-PlayerLeashed", "Вы привязали игрока <player>"),
                             Placeholder.unparsed("player", leashedPlayer.getName())));
+
                     // GSit shit
                     GSitAPI.stopPlayerSit(leashedPlayer, GetUpReason.KICKED);
                     GSitAPI.stopCrawl(leashedPlayer, GetUpReason.KICKED);
                     GSitAPI.removePose(leashedPlayer, GetUpReason.KICKED);
                     GSitAPI.removeSeat(leashedPlayer, GetUpReason.KICKED);
 
-                    leashed.add(leashedPlayer.getUniqueId());
-                    spawn(player, leashedPlayer);
-
-                    new BukkitRunnable() {
-                        public void run() {
-                            if (!leashed.contains(leashedPlayer.getUniqueId())) {
-                                cancel();
-                            }
-                            if (player.getLocation().distanceSquared(leashedPlayer.getLocation()) > 10.0) {
-                                leashedPlayer.setVelocity(player.getLocation().toVector().subtract(leashedPlayer.getLocation().toVector()).multiply(0.05));
-                            }
-                        }
-                    }.runTaskTimer(plugin, 0L, 0L);
+                    leashBonds.add(new LeashBond(player, leashedPlayer));
                 }
             }
         }
-    }
-
-    @EventHandler
-    public void onPlayerMoveEvent(PlayerMoveEvent event) {
-        if (leashed.contains(event.getPlayer().getUniqueId())) {
-            Player leashedPlayer = event.getPlayer();
-            for (Entity entity : leashedPlayer.getNearbyEntities(5.0, 5.0, 5.0)) {
-                if (entity instanceof Slime && entity.hasMetadata(leashedPlayer.getUniqueId().toString())) {
-                    entity.teleport(leashedPlayer.getLocation().add(0.0, 1.0, 0.0),
-                            TeleportFlag.Relative.YAW,
-                            TeleportFlag.Relative.PITCH);
-                }
-            }
-        }
-    }
-
-    @EventHandler
-    public void onPlayerDeathEvent(PlayerDeathEvent event) {
-        unleashAllRelated(event.getPlayer());
-    }
-
-    @EventHandler
-    public void onPlayerQuitEvent(PlayerQuitEvent event) {
-        unleashAllRelated(event.getPlayer());
     }
 
     @EventHandler
     public void onHangingPlaceEvent(HangingPlaceEvent event) {
-        if (event.getEntity() instanceof LeashHitch leash) {
-            for (Entity entity : leash.getNearbyEntities(7.0, 7.0, 7.0)) {
-                if (leashed.contains(entity.getUniqueId())) {
-                    event.setCancelled(true);
-                    return;
+        if (event.getEntity() instanceof LeashHitch) {
+            if (event.getPlayer() != null) {
+                for (LeashBond leashBond : leashBonds) {
+                    if (leashBond.getOwner().getUniqueId().equals(event.getPlayer().getUniqueId())) {
+                        event.setCancelled(true);
+                    }
                 }
             }
         }
@@ -128,73 +88,91 @@ public class InspectorLeashListener implements Listener {
         }
     }
 
-    private void spawn(Player player, Player target) {
-        target.getWorld().spawn(
-                target.getLocation().add(0.0, 1.0, 0.0),
-                Slime.class,
-                (entity -> {
-                    entity.setSize(0);
-                    entity.setAI(false);
-                    entity.setGravity(false);
-                    entity.setLeashHolder(player);
-                    entity.setInvisible(true);
-                    entity.setInvulnerable(true);
-                    entity.setVisualFire(false);
-                    entity.setSilent(true);
-                    entity.setCollidable(false);
-                    entity.setMetadata(target.getUniqueId().toString(), new FixedMetadataValue(plugin, "abobik"));
-                    entity.setMetadata("disallowUnleash", new FixedMetadataValue(plugin, "apopik"));
-                }));
-        target.setMetadata(target.getUniqueId().toString(), new FixedMetadataValue(plugin,"aboba"));
-        target.setAllowFlight(true);
-    }
-
-    private void unleashPlayer(Player target) {
-        for (Entity entity : target.getNearbyEntities(1.0, 1.0, 1.0)) {
-            if (entity instanceof Slime slime) {
-                if (slime.hasMetadata(target.getUniqueId().toString())) {
-                    slime.setLeashHolder(null);
-                    slime.remove();
-                    leashed.remove(target.getUniqueId());
-                    target.setAllowFlight(false);
-                }
-            }
-        }
-    }
-
-    private void unleashAllRelated(Player target) {
-        if (leashed.contains(target.getUniqueId())) {
-            for (Player player : Bukkit.getOnlinePlayers()) {
-                if (player.hasMetadata(target.getUniqueId().toString())) {
-                    unleashPlayer(target);
-                }
-            }
-        }
-    }
-
     // GSit shit
-    @EventHandler(priority = EventPriority.HIGHEST)
+    @EventHandler
     public void onLeashPlayerSit(PrePlayerPlayerSitEvent event) {
-        event.setCancelled(leashed.contains(event.getTarget().getUniqueId()));
+        event.setCancelled(event.getPlayer().hasMetadata("isLeashed") || event.getTarget().hasMetadata("isLeashed"));
     }
 
     // GSit shit
-    @EventHandler(priority = EventPriority.HIGHEST)
+    @EventHandler
     public void onLeashSit(PreEntitySitEvent event) {
         if (event.getEntity() instanceof Player player) {
-            event.setCancelled(leashed.contains(player.getUniqueId()));
+            event.setCancelled(player.hasMetadata("isLeashed"));
         }
     }
 
     // GSit shit
-    @EventHandler(priority = EventPriority.HIGHEST)
+    @EventHandler
     public void onLeashCrawl(PrePlayerCrawlEvent event) {
-        event.setCancelled(leashed.contains(event.getPlayer().getUniqueId()));
+        event.setCancelled(event.getPlayer().hasMetadata("isLeashed"));
     }
 
     // GSit shit
-    @EventHandler(priority = EventPriority.HIGHEST)
+    @EventHandler
     public void onLeashPose(PrePlayerPoseEvent event) {
-        event.setCancelled(leashed.contains(event.getPlayer().getUniqueId()));
+        event.setCancelled(event.getPlayer().hasMetadata("isLeashed"));
+    }
+
+    public class LeashBond {
+
+        private final Player owner;
+        private final Player leashed;
+        private Entity entity;
+        private BukkitTask bukkitTask;
+
+        public LeashBond(Player owner, Player leashed) {
+            this.owner = owner;
+            this.leashed = leashed;
+            this.entity = leashed.getWorld().spawn(
+                    leashed.getLocation().add(0.0, 1.0, 0.0),
+                    Slime.class,
+                    (entity -> {
+                        entity.setSize(0);
+                        entity.setAI(false);
+                        entity.setGravity(false);
+                        entity.setLeashHolder(owner);
+                        entity.setInvisible(true);
+                        entity.setInvulnerable(true);
+                        entity.setVisualFire(false);
+                        entity.setSilent(true);
+                        entity.setCollidable(false);
+                        entity.setMetadata("disallowUnleash", new FixedMetadataValue(plugin, "aboba"));
+                    }));
+            this.bukkitTask = new BukkitRunnable() {
+                public void run() {
+                    if (!owner.isOnline() || !leashed.isOnline() || owner.getHealth() == 0 || leashed.getHealth() == 0 || !entity.isValid()) {
+                        remove();
+                    }
+                    entity.teleport(leashed.getLocation().add(0.0, 1.0, 0.0));
+                    if (owner.getLocation().distanceSquared(leashed.getLocation()) > 10.0) {
+                        leashed.setVelocity(owner.getLocation().toVector().subtract(leashed.getLocation().toVector()).multiply(0.05));
+                    }
+                }
+            }.runTaskTimer(plugin, 0L, 0L);
+            leashed.setMetadata("isLeashed", new FixedMetadataValue(plugin, "aboba"));
+        }
+
+        public Player getOwner() {
+            return owner;
+        }
+
+        public Player getLeashed() {
+            return leashed;
+        }
+
+        public Entity getEntity() {
+            return entity;
+        }
+
+        public void remove() {
+            if (entity instanceof Slime slime) {
+                slime.setLeashHolder(null);
+            }
+            entity.remove();
+            leashed.removeMetadata("isLeashed", plugin);
+            bukkitTask.cancel();
+            leashBonds.remove(this);
+        }
     }
 }
