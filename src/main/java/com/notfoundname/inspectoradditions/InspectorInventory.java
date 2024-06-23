@@ -7,7 +7,8 @@ import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.Material;
-import org.bukkit.Tag;
+import org.bukkit.block.Block;
+import org.bukkit.entity.Player;
 import org.bukkit.event.Listener;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
@@ -24,22 +25,18 @@ public class InspectorInventory implements InventoryHolder, Listener {
     private final InspectorAdditions plugin;
     private final Inventory inventory;
     private int currentPage = 0;
-    private final int maxPage;
-    private final int maxInventorySize = 45;
-    private final List<String[]> data;
-    private final List<ItemStack> items;
+    private int maxPage = 0;
+    private final int maxInventorySize = 44;
+    private final List<String[]> data = new ArrayList<>();
+    private final List<ItemStack> items = new ArrayList<>();
 
-    public InspectorInventory(InspectorAdditions plugin, List<String[]> data) {
+    public InspectorInventory(InspectorAdditions plugin, Player player, Block block, boolean blockLookup) {
         this.plugin = plugin;
-        this.data = data;
-        this.items = new ArrayList<>();
-        this.maxPage = data.size() / maxInventorySize;
         this.inventory = plugin.getServer().createInventory(this, 54,
                 Component.text(plugin.getConfig().getString("CoreProtect-InventoryName", "null")
                         .replace("<page>", Integer.toString(currentPage + 1))
                         .replace("<maxpage>", Integer.toString(maxPage + 1))));
-        populateItems();
-        fill();
+        loadCoreProtect(player, block, blockLookup);
     }
 
     @NotNull
@@ -48,10 +45,29 @@ public class InspectorInventory implements InventoryHolder, Listener {
         return this.inventory;
     }
 
+    public void loadCoreProtect(Player player, Block block, boolean blockLookup) {
+        inventory.setMaxStackSize(1);
+        player.openInventory(inventory);
+        inventory.getViewers().forEach(viewer -> viewer.getOpenInventory().setTitle("Подождите..."));
+        if (blockLookup) {
+            data.addAll(InspectorCoreProtectLookup.performBlockLookup(plugin.getCoreProtectAPI(), block, 0));
+        } else {
+            data.addAll(InspectorCoreProtectLookup.performRadiusLookup(plugin.getCoreProtectAPI(), player.getLocation()));
+        }
+        if (!data.isEmpty()) {
+            maxPage = data.size() / maxInventorySize;
+            populateItems();
+            fill();
+        } else if (!inventory.getViewers().isEmpty()){
+            inventory.close();
+            player.sendMessage(MiniMessage.miniMessage().deserialize(
+                    plugin.getConfig().getString("CoreProtect-NoHistory", "Нет истории")));
+        }
+    }
+
     public void populateItems() {
         for (String[] entry : data) {
-            if (entry == null) continue;
-            if (entry.length == 0) continue;
+            if (entry[0].isEmpty()) continue;
             String timestamp = Util.getTimeSince(Long.parseLong(entry[0]), System.currentTimeMillis() / 1000L, false)
                     .replace("ago", "назад")
                     .replace("/", "")
@@ -66,6 +82,7 @@ public class InspectorInventory implements InventoryHolder, Listener {
 
             boolean isSignLookup = type.equals("sign");
 
+            /*
             if (!isSignLookup) {
                 if (Util.getType(type) != null) {
                     if (Tag.SIGNS.isTagged(Util.getType(type)) && entry[7].equals("2")) {
@@ -73,6 +90,7 @@ public class InspectorInventory implements InventoryHolder, Listener {
                     }
                 }
             }
+            */
 
             ItemStack itemStack;
             Component name;
@@ -124,7 +142,6 @@ public class InspectorInventory implements InventoryHolder, Listener {
                             name = Objects.requireNonNull(item.getItemMeta().displayName());
                         }
                     }
-
                 }
 
                 if (!entry[10].isEmpty()) {
@@ -197,17 +214,17 @@ public class InspectorInventory implements InventoryHolder, Listener {
 
     public void fill() {
         if (currentPage != maxPage) {
-            inventory.setItem(53, InspectorAdditions.pageForwardItemStack);
+            inventory.setItem(53, InspectorInventoryManager.pageForwardItemStack);
         }
         if (currentPage > 0) {
-            inventory.setItem(45, InspectorAdditions.pageBackItemStack);
+            inventory.setItem(45, InspectorInventoryManager.pageBackItemStack);
         }
         for (int i = 0; i < maxInventorySize; i++) {
             int currentNumber = i + (currentPage * maxInventorySize);
             if (items.size() <= currentNumber) {
                 break;
             }
-            inventory.setItem(i, items.get(currentNumber));
+            inventory.addItem(items.get(currentNumber));
         }
         inventory.getViewers().forEach(viewer -> viewer.getOpenInventory().setTitle(
                 plugin.getConfig().getString("CoreProtect-InventoryName", "null")
