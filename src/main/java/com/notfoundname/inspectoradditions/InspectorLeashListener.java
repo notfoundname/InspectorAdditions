@@ -43,17 +43,11 @@ public class InspectorLeashListener implements Listener {
                         if (leashBond.getLeashed().getUniqueId().equals(leashedPlayer.getUniqueId())
                                 && leashBond.getOwner().getUniqueId().equals(player.getUniqueId())) {
                             event.setCancelled(true);
-                            player.sendMessage(MiniMessage.miniMessage().deserialize(
-                                    plugin.getConfig().getString("Leash-PlayerUnleashed", "<player> был отвязан"),
-                                    Placeholder.unparsed("player", leashedPlayer.getName())));
                             leashBond.remove();
                             return;
                         }
                     }
                     event.setCancelled(true);
-                    player.sendMessage(MiniMessage.miniMessage().deserialize(
-                            plugin.getConfig().getString("Leash-PlayerLeashed", "Вы привязали игрока <player>"),
-                            Placeholder.unparsed("player", leashedPlayer.getName())));
 
                     // GSit shit
                     GSitAPI.stopPlayerSit(leashedPlayer, GetUpReason.KICKED);
@@ -162,7 +156,10 @@ public class InspectorLeashListener implements Listener {
                     }));
             this.bukkitTask = new BukkitRunnable() {
                 public void run() {
-                    if (!owner.isOnline() || !leashed.isOnline() || owner.getHealth() == 0 || leashed.getHealth() == 0 || !entity.isValid()) {
+                    if (!owner.isOnline() || !leashed.isOnline()
+                            || owner.getHealth() == 0 || leashed.getHealth() == 0
+                            || !entity.isValid()
+                            || !leashed.getWorld().equals(owner.getWorld())) {
                         remove();
                         return;
                     }
@@ -174,6 +171,10 @@ public class InspectorLeashListener implements Listener {
                     leashed.setFallDistance(0);
                 }
             }.runTaskTimer(plugin, 0L, 0L);
+
+            owner.sendMessage(MiniMessage.miniMessage().deserialize(
+                    plugin.getConfig().getString("Leash-PlayerLeashed", "Вы привязали игрока <player>"),
+                    Placeholder.unparsed("player", leashed.getName())));
             leashed.setMetadata("isLeashed", new FixedMetadataValue(plugin, true));
         }
 
@@ -186,6 +187,9 @@ public class InspectorLeashListener implements Listener {
         }
 
         public void remove() {
+            owner.sendMessage(MiniMessage.miniMessage().deserialize(
+                    plugin.getConfig().getString("Leash-PlayerUnleashed", "<player> был отвязан"),
+                    Placeholder.unparsed("player", leashed.getName())));
             if (entity instanceof Slime slime) {
                 slime.setLeashHolder(null);
             }
