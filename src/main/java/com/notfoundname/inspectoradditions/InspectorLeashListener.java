@@ -15,6 +15,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityPortalEvent;
 import org.bukkit.event.entity.EntityUnleashEvent;
 import org.bukkit.event.hanging.HangingPlaceEvent;
+import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.metadata.FixedMetadataValue;
 import org.bukkit.scheduler.BukkitRunnable;
@@ -36,6 +37,10 @@ public class InspectorLeashListener implements Listener {
     @EventHandler
     public void onLeashEvent(PrePlayerAttackEntityEvent event) {
         Player player = event.getPlayer();
+        if (player.hasMetadata("isLeashed")) {
+            event.setCancelled(true);
+            return;
+        }
         if (event.getAttacked() instanceof Player leashedPlayer) {
             if (plugin.isSpyglass(player.getInventory().getItemInMainHand())) {
                 if (player.isSneaking()) {
@@ -92,6 +97,11 @@ public class InspectorLeashListener implements Listener {
     @EventHandler
     public void onEntityTeleportPortalEvent(EntityPortalEvent event) {
         event.setCancelled(event.getEntity().hasMetadata("disallowUnleash"));
+    }
+
+    @EventHandler
+    public void onLeashedInteractEvent(PlayerInteractEvent event) {
+        event.setCancelled(event.getPlayer().hasMetadata("isLeashed"));
     }
 
     // GSit shit
@@ -163,9 +173,9 @@ public class InspectorLeashListener implements Listener {
                         remove();
                         return;
                     }
-                    if (owner.getLocation().distanceSquared(leashed.getLocation()) > 10.0) {
+                    if (owner.getLocation().distanceSquared(leashed.getLocation()) > 20.0) {
                         leashed.setVelocity(owner.getLocation().toVector().subtract(leashed.getLocation().toVector())
-                                .multiply(owner.getLocation().distanceSquared(leashed.getLocation()) * 0.005));
+                                .multiply(owner.getLocation().distanceSquared(leashed.getLocation()) * 0.001));
                     }
                     entity.teleportAsync(leashed.getLocation().add(0.0, 0.85, 0.0), PlayerTeleportEvent.TeleportCause.PLUGIN);
                     leashed.setFallDistance(0);
