@@ -173,9 +173,15 @@ public class InspectorLeashListener implements Listener {
                         remove();
                         return;
                     }
-                    if (owner.getLocation().distanceSquared(leashed.getLocation()) > 20.0) {
+                    double distance = owner.getLocation().distanceSquared(leashed.getLocation());
+
+                    if (distance >= 12.0 && distance < 200.0) {
+                        leashed.getLocation().distanceSquared(owner.getLocation());
                         leashed.setVelocity(owner.getLocation().toVector().subtract(leashed.getLocation().toVector())
-                                .multiply(owner.getLocation().distanceSquared(leashed.getLocation()) * 0.001));
+                                .multiply(owner.getLocation().distanceSquared(leashed.getLocation()) * 0.005));
+                    }
+                    if (distance >= 200.0) {
+                        leashed.teleportAsync(owner.getLocation(), PlayerTeleportEvent.TeleportCause.PLUGIN);
                     }
                     entity.teleportAsync(leashed.getLocation().add(0.0, 0.85, 0.0), PlayerTeleportEvent.TeleportCause.PLUGIN);
                     leashed.setFallDistance(0);
