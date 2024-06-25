@@ -9,6 +9,7 @@ import dev.geco.gsit.objects.GetUpReason;
 import io.papermc.paper.event.player.PrePlayerAttackEntityEvent;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
+import org.bukkit.Tag;
 import org.bukkit.entity.*;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -88,7 +89,7 @@ public class InspectorLeashListener implements Listener {
 
     @EventHandler
     public void onPlayerTeleportEvent(PlayerTeleportEvent event) {
-        if (event.getPlayer().hasMetadata("isLeashed") || hasLeashBond(event.getPlayer())) {
+        if (event.getPlayer().hasMetadata("isLeashed")) {
             switch (event.getCause()) {
                 case ENDER_PEARL,END_GATEWAY,END_PORTAL,NETHER_PORTAL,CHORUS_FRUIT,COMMAND -> event.setCancelled(true);
             }
@@ -102,12 +103,25 @@ public class InspectorLeashListener implements Listener {
 
     @EventHandler
     public void onLeashedInteractEvent(PlayerInteractEvent event) {
-        event.setCancelled(event.getPlayer().hasMetadata("isLeashed"));
+        if (event.getPlayer().hasMetadata("isLeashed")) {
+            event.setCancelled(true);
+        }
+        if (hasLeashBond(event.getPlayer())) {
+            if (event.getClickedBlock() != null) {
+                event.setCancelled(Tag.FENCES.isTagged(event.getClickedBlock().getType()));
+            }
+        }
     }
 
     @EventHandler
-    public void onLeashedInteractAtEntityEvent(PlayerInteractEntityEvent event) {
-        event.setCancelled(event.getPlayer().hasMetadata("isLeashed"));
+    public void onLeashedInteractEntityEvent(PlayerInteractEntityEvent event) {
+        if (event.getPlayer().hasMetadata("isLeashed")) {
+            event.setCancelled(true);
+            return;
+        }
+        if (hasLeashBond(event.getPlayer())) {
+            event.setCancelled(event.getRightClicked() instanceof LeashHitch);
+        }
     }
 
     // GSit shit
@@ -172,24 +186,27 @@ public class InspectorLeashListener implements Listener {
                     }));
             this.bukkitTask = new BukkitRunnable() {
                 public void run() {
-                    if (!owner.isOnline() || !leashed.isOnline()
-                            || owner.getHealth() == 0 || leashed.getHealth() == 0
-                            || !entity.isValid()
-                            || !leashed.getWorld().equals(owner.getWorld())) {
+                    if (!owner.isOnline() || !leashed.isOnline() || owner.getHealth() == 0 || leashed.getHealth() == 0 || !entity.isValid()) {
                         remove();
                         return;
                     }
-                    double distance = owner.getLocation().distanceSquared(leashed.getLocation());
-
-                    if (distance >= 12.0 && distance < 200.0) {
-                        leashed.getLocation().distanceSquared(owner.getLocation());
-                        leashed.setVelocity(owner.getLocation().toVector().subtract(leashed.getLocation().toVector())
-                                .multiply(owner.getLocation().distanceSquared(leashed.getLocation()) * 0.005));
+                    if (!leashed.getWorld().equals(owner.getWorld()) || !entity.getWorld().equals(leashed.getWorld())) {
+                        ((Slime) entity).setLeashHolder(null);
+                        leashed.teleport(owner.getLocation(), PlayerTeleportEvent.TeleportCause.PLUGIN);
+                        entity.teleport(leashed.getLocation().add(0.0, 0.85, 0.0), PlayerTeleportEvent.TeleportCause.PLUGIN);
+                        ((Slime) entity).setLeashHolder(owner);
+                    } else {
+                        double distance = owner.getLocation().distanceSquared(leashed.getLocation());
+                        if (distance >= 12.0 && distance < 200.0) {
+                            leashed.getLocation().distanceSquared(owner.getLocation());
+                            leashed.setVelocity(owner.getLocation().toVector().subtract(leashed.getLocation().toVector())
+                                    .multiply(owner.getLocation().distanceSquared(leashed.getLocation()) * 0.005));
+                        }
+                        if (distance >= 200.0) {
+                            leashed.teleportAsync(owner.getLocation(), PlayerTeleportEvent.TeleportCause.PLUGIN);
+                        }
+                        entity.teleportAsync(leashed.getLocation().add(0.0, 0.85, 0.0), PlayerTeleportEvent.TeleportCause.PLUGIN);
                     }
-                    if (distance >= 200.0) {
-                        leashed.teleportAsync(owner.getLocation(), PlayerTeleportEvent.TeleportCause.PLUGIN);
-                    }
-                    entity.teleportAsync(leashed.getLocation().add(0.0, 0.85, 0.0), PlayerTeleportEvent.TeleportCause.PLUGIN);
                     leashed.setFallDistance(0);
                 }
             }.runTaskTimer(plugin, 0L, 0L);
