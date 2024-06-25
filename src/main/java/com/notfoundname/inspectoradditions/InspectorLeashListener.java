@@ -15,6 +15,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityPortalEvent;
 import org.bukkit.event.entity.EntityUnleashEvent;
 import org.bukkit.event.hanging.HangingPlaceEvent;
+import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.metadata.FixedMetadataValue;
@@ -101,6 +102,11 @@ public class InspectorLeashListener implements Listener {
 
     @EventHandler
     public void onLeashedInteractEvent(PlayerInteractEvent event) {
+        event.setCancelled(event.getPlayer().hasMetadata("isLeashed"));
+    }
+
+    @EventHandler
+    public void onLeashedInteractAtEntityEvent(PlayerInteractEntityEvent event) {
         event.setCancelled(event.getPlayer().hasMetadata("isLeashed"));
     }
 
