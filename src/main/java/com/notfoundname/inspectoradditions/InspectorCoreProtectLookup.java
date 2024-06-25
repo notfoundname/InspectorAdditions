@@ -166,13 +166,13 @@ public class InspectorCoreProtectLookup {
 
     public static List<String[]> performRadiusLookup(CoreProtectAPI coreProtectAPI, Location location) {
         List<String[]> result = coreProtectAPI.performLookup(
-                31104000,
+                1209600,
                 null,
                 null,
                 null,
                 null,
                 Arrays.asList(0, 1, 2, 3),
-                InspectorAdditions.getInstance().getConfig().getInt("CoreProtect-Radius", 10), location);
+                InspectorAdditions.getInstance().getConfig().getInt("CoreProtect-Radius", 5), location);
         // TODO
         return result;
     }

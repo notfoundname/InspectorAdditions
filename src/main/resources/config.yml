@@ -2,7 +2,7 @@ MythicMobs-Item: "InspectorsSpyglass"
 MythicMobs-ItemDropped: "<yellow>Вы обронили <item>!"
 Leash-PlayerLeashed: "<green>Вы привязали игрока <player>!"
 Leash-PlayerUnleashed: "<red>Игрок <player> был отвязан!"
-CoreProtect-Radius: 10
+CoreProtect-Radius: 5
 CoreProtect-NoHistory: "<yellow>История отсутствует!"
 CoreProtect-InventoryName: "[<page>/<maxpage>] Найденные улики"
 CoreProtect-PageForward: "<i:false><white>Страница вперёд >"

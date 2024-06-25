@@ -12,8 +12,10 @@ import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.bukkit.entity.*;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import org.bukkit.event.entity.EntityPortalEvent;
 import org.bukkit.event.entity.EntityUnleashEvent;
 import org.bukkit.event.hanging.HangingPlaceEvent;
+import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.metadata.FixedMetadataValue;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
@@ -24,7 +26,7 @@ public class InspectorLeashListener implements Listener {
 
     private final InspectorAdditions plugin;
 
-    private final List<LeashBond> leashBonds = new ArrayList<>();
+    private final Set<LeashBond> leashBonds = new HashSet<>();
 
     public InspectorLeashListener(InspectorAdditions plugin) {
         this.plugin = plugin;
@@ -35,19 +37,19 @@ public class InspectorLeashListener implements Listener {
     public void onLeashEvent(PrePlayerAttackEntityEvent event) {
         Player player = event.getPlayer();
         if (event.getAttacked() instanceof Player leashedPlayer) {
-            for (LeashBond leashBond : leashBonds) {
-                if (leashBond.getLeashed().getUniqueId().equals(leashedPlayer.getUniqueId())
-                        && leashBond.getOwner().getUniqueId().equals(player.getUniqueId())) {
-                    event.setCancelled(true);
-                    player.sendMessage(MiniMessage.miniMessage().deserialize(
-                            plugin.getConfig().getString("Leash-PlayerUnleashed", "<player> был отвязан"),
-                            Placeholder.unparsed("player", leashedPlayer.getName())));
-                    leashBond.remove();
-                    return;
-                }
-            }
             if (plugin.isSpyglass(player.getInventory().getItemInMainHand())) {
                 if (player.isSneaking()) {
+                    for (LeashBond leashBond : leashBonds) {
+                        if (leashBond.getLeashed().getUniqueId().equals(leashedPlayer.getUniqueId())
+                                && leashBond.getOwner().getUniqueId().equals(player.getUniqueId())) {
+                            event.setCancelled(true);
+                            player.sendMessage(MiniMessage.miniMessage().deserialize(
+                                    plugin.getConfig().getString("Leash-PlayerUnleashed", "<player> был отвязан"),
+                                    Placeholder.unparsed("player", leashedPlayer.getName())));
+                            leashBond.remove();
+                            return;
+                        }
+                    }
                     event.setCancelled(true);
                     player.sendMessage(MiniMessage.miniMessage().deserialize(
                             plugin.getConfig().getString("Leash-PlayerLeashed", "Вы привязали игрока <player>"),
@@ -69,11 +71,7 @@ public class InspectorLeashListener implements Listener {
     public void onHangingPlaceEvent(HangingPlaceEvent event) {
         if (event.getEntity() instanceof LeashHitch) {
             if (event.getPlayer() != null) {
-                for (LeashBond leashBond : leashBonds) {
-                    if (leashBond.getOwner().getUniqueId().equals(event.getPlayer().getUniqueId())) {
-                        event.setCancelled(true);
-                    }
-                }
+                event.setCancelled(hasLeashBond(event.getPlayer()));
             }
         }
     }
@@ -86,6 +84,20 @@ public class InspectorLeashListener implements Listener {
                 event.setCancelled(true);
             }
         }
+    }
+
+    @EventHandler
+    public void onPlayerTeleportEvent(PlayerTeleportEvent event) {
+        if (event.getPlayer().hasMetadata("isLeashed") || hasLeashBond(event.getPlayer())) {
+            switch (event.getCause()) {
+                case ENDER_PEARL,END_GATEWAY,END_PORTAL,NETHER_PORTAL,CHORUS_FRUIT,COMMAND -> event.setCancelled(true);
+            }
+        }
+    }
+
+    @EventHandler
+    public void onEntityTeleportPortalEvent(EntityPortalEvent event) {
+        event.setCancelled(event.getEntity().hasMetadata("disallowUnleash"));
     }
 
     // GSit shit
@@ -114,18 +126,27 @@ public class InspectorLeashListener implements Listener {
         event.setCancelled(event.getPlayer().hasMetadata("isLeashed"));
     }
 
+    public boolean hasLeashBond(Player owner) {
+        for (LeashBond leashBond : leashBonds) {
+            if (leashBond.getOwner().getUniqueId().equals(owner.getUniqueId())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public class LeashBond {
 
         private final Player owner;
         private final Player leashed;
-        private Entity entity;
-        private BukkitTask bukkitTask;
+        private final Entity entity;
+        private final BukkitTask bukkitTask;
 
         public LeashBond(Player owner, Player leashed) {
             this.owner = owner;
             this.leashed = leashed;
             this.entity = leashed.getWorld().spawn(
-                    leashed.getLocation().add(0.0, 1.0, 0.0),
+                    leashed.getLocation().add(0.0, 0.85, 0.0),
                     Slime.class,
                     (entity -> {
                         entity.setSize(0);
@@ -137,20 +158,23 @@ public class InspectorLeashListener implements Listener {
                         entity.setVisualFire(false);
                         entity.setSilent(true);
                         entity.setCollidable(false);
-                        entity.setMetadata("disallowUnleash", new FixedMetadataValue(plugin, "aboba"));
+                        entity.setMetadata("disallowUnleash", new FixedMetadataValue(plugin, true));
                     }));
             this.bukkitTask = new BukkitRunnable() {
                 public void run() {
                     if (!owner.isOnline() || !leashed.isOnline() || owner.getHealth() == 0 || leashed.getHealth() == 0 || !entity.isValid()) {
                         remove();
+                        return;
                     }
-                    entity.teleport(leashed.getLocation().add(0.0, 1.0, 0.0));
                     if (owner.getLocation().distanceSquared(leashed.getLocation()) > 10.0) {
-                        leashed.setVelocity(owner.getLocation().toVector().subtract(leashed.getLocation().toVector()).multiply(0.05));
+                        leashed.setVelocity(owner.getLocation().toVector().subtract(leashed.getLocation().toVector())
+                                .multiply(owner.getLocation().distanceSquared(leashed.getLocation()) * 0.005));
                     }
+                    entity.teleportAsync(leashed.getLocation().add(0.0, 0.85, 0.0), PlayerTeleportEvent.TeleportCause.PLUGIN);
+                    leashed.setFallDistance(0);
                 }
             }.runTaskTimer(plugin, 0L, 0L);
-            leashed.setMetadata("isLeashed", new FixedMetadataValue(plugin, "aboba"));
+            leashed.setMetadata("isLeashed", new FixedMetadataValue(plugin, true));
         }
 
         public Player getOwner() {
@@ -159,10 +183,6 @@ public class InspectorLeashListener implements Listener {
 
         public Player getLeashed() {
             return leashed;
-        }
-
-        public Entity getEntity() {
-            return entity;
         }
 
         public void remove() {

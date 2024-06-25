@@ -42,7 +42,7 @@ public class InspectorInventory implements InventoryHolder, Listener {
     @NotNull
     @Override
     public Inventory getInventory() {
-        return this.inventory;
+        return inventory;
     }
 
     public void loadCoreProtect(Player player, Block block, boolean blockLookup) {
