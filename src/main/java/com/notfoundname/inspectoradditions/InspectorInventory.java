@@ -219,7 +219,7 @@ public class InspectorInventory implements InventoryHolder, Listener {
         if (currentPage > 0) {
             inventory.setItem(45, InspectorInventoryManager.pageBackItemStack);
         }
-        for (int i = 0; i < maxInventorySize; i++) {
+        for (int i = 0; i <= maxInventorySize; i++) {
             int currentNumber = i + (currentPage * maxInventorySize);
             if (items.size() <= currentNumber) {
                 break;
